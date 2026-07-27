@@ -1,0 +1,38 @@
+# secrets / credentials
+.env
+.env.*
+!.env.example
+auth.json
+telegram.json
+locks.json
+trust.json
+*.pem
+*.key
+
+# local machine config (pi creates/updates this)
+settings.json
+
+# private / machine-local providers (not shared in this repo)
+extensions/grok-proxy/
+
+# local runtime state
+sessions/
+tmp/
+npm/
+node_modules
+node_modules/
+models-store.json
+run-history.jsonl
+mcp-cache.json
+mcp-oauth/
+mcp-onboarding.json
+
+# generated / managed by other tools
+extensions/herdr-agent-state.ts
+
+# OS / editor
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/

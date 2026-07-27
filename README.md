@@ -1,0 +1,20 @@
+# pi-agent-setup
+
+Personal [pi](https://github.com/earendil-works/pi-mono) extensions.
+
+```bash
+git clone <repo> /tmp/pi-agent-setup
+cp -R /tmp/pi-agent-setup/extensions/* ~/.pi/agent/extensions/
+pi install npm:@ff-labs/pi-fff
+pi install npm:pi-mcp-adapter
+cp /tmp/pi-agent-setup/.env.example ~/.pi/agent/.env  # fill keys
+```
+
+| Extension | Role |
+|-----------|------|
+| `defaults` | FFF override, MCP gate, lean prompt |
+| `search-web` | Exa + Firecrawl |
+| `subagents` | scout / planner / worker / reviewer / oracle (model inherits chat; thinking per agent) |
+| `ui` | footer + titlebar |
+
+Local only (gitignored): `settings.json`, `auth.json`, `sessions/`, private providers, etc.
