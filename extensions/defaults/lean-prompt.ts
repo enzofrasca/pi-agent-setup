@@ -78,7 +78,7 @@ function tightenIntro(prompt: string): string {
 	return prompt.includes(fat) ? prompt.replace(fat, lean) : prompt;
 }
 
-export function registerLeanSystemPrompt(pi: ExtensionAPI): void {
+export function registerLeanPrompt(pi: ExtensionAPI): void {
 	if (process.env.PI_SUBAGENT === "1") return;
 	if (process.env.PI_LEAN_PROMPT === "0") return;
 

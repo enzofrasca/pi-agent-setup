@@ -15,7 +15,7 @@ if (!process.env.PI_FFF_MODE) {
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerMcpGate } from "./mcp-gate.ts";
-import { registerLeanSystemPrompt } from "./system-prompt.ts";
+import { registerLeanPrompt } from "./lean-prompt.ts";
 
 export default function (pi: ExtensionAPI): void {
 	// Re-assert in case something cleared it between load and factory.
@@ -24,5 +24,5 @@ export default function (pi: ExtensionAPI): void {
 	}
 
 	registerMcpGate(pi);
-	registerLeanSystemPrompt(pi);
+	registerLeanPrompt(pi);
 }
