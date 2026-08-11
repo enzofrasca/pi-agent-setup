@@ -1,14 +1,14 @@
-# pi-agent-setup
+# lean-pi
 
-Personal [pi](https://github.com/earendil-works/pi-mono) extensions.
+Minimal personal harness for the [pi](https://github.com/earendil-works/pi-mono) coding agent.
 
 ```bash
-git clone https://github.com/enzofrasca/pi-agent-setup.git /tmp/pi-agent-setup
-cp -R /tmp/pi-agent-setup/extensions/* ~/.pi/agent/extensions/
+git clone https://github.com/enzofrasca/lean-pi.git /tmp/lean-pi
+cp -R /tmp/lean-pi/extensions/* ~/.pi/agent/extensions/
 pi install npm:pi-mcp-adapter
 # Do NOT install npm:@ff-labs/pi-fff — use the lean local package instead:
 # settings.json → "packages": ["extensions/fff", …]
-cp /tmp/pi-agent-setup/.env.example ~/.pi/agent/.env  # fill keys
+cp /tmp/lean-pi/.env.example ~/.pi/agent/.env  # fill keys
 ```
 
 | Extension | Role |
