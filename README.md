@@ -16,7 +16,6 @@ cp /tmp/pi-agent-setup/.env.example ~/.pi/agent/.env  # fill keys
 | `defaults` | FFF override env, MCP gate (tools + conditional skill), lean prompt |
 | `fff` | Lean FFF `find`/`grep` (override mode, no guidelines; package via `settings.packages`) |
 | `search-web` | Exa + Firecrawl |
-| `subagents` | scout / planner / worker / reviewer / oracle + project `.pi/agents/*.md` (cwd; highest precedence) |
 | `ui` | footer + titlebar |
 
 Private / machine-local (not in this repo): `agy-proxy`, `cursor-proxy`, `grok-proxy`.

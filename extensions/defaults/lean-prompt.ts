@@ -1,6 +1,6 @@
 /**
  * Lean the always-on parent system prompt.
- * Kill switch: PI_LEAN_PROMPT=0. Skipped for PI_SUBAGENT children and custom --system-prompt.
+ * Kill switch: PI_LEAN_PROMPT=0. Skipped for custom --system-prompt.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -31,14 +31,11 @@ function dropFiller(prompt: string): string {
 }
 
 function slimGuidelines(prompt: string): string {
-	// Defense only: search/scrape/subagents policy lives on tool descriptions,
+	// Defense only: search/scrape policy lives on tool descriptions,
 	// not always-on Guidelines. Keep stripping if something re-injects them.
 	const dropPrefixes = [
 		"Use search ",
 		"Use scrape",
-		"Use subagents",
-		"Call subagents",
-		"Prefer a single subagents",
 		"Prefer search first",
 		"Write queries as specific",
 		"For framework or product docs",
@@ -81,7 +78,6 @@ function tightenIntro(prompt: string): string {
 }
 
 export function registerLeanPrompt(pi: ExtensionAPI): void {
-	if (process.env.PI_SUBAGENT === "1") return;
 	if (process.env.PI_LEAN_PROMPT === "0") return;
 
 	pi.on("before_agent_start", async (event) => {
