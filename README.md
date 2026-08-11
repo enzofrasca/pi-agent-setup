@@ -13,7 +13,7 @@ cp /tmp/lean-pi/.env.example ~/.pi/agent/.env  # fill keys
 
 | Extension | Role |
 |-----------|------|
-| `defaults` | FFF override env, MCP gate (tools + conditional skill), lean prompt |
+| `defaults` | FFF override env + no home-scan, MCP gate (tools + conditional skill), lean prompt |
 | `fff` | Lean FFF `find`/`grep` (override mode, no guidelines; package via `settings.packages`) |
 | `search-web` | Exa + Firecrawl |
 | `ui` | footer + titlebar |
