@@ -1,14 +1,15 @@
 /**
  * defaults — local harness preferences (not features)
  *
- * - FFF override mode (official npm:@ff-labs/pi-fff)
- * - MCP gate (hide proxy when project has no servers)
+ * - PI_FFF_MODE=override early (before extensions/fff package factory)
  * - Lean system prompt
+ * - MCP gate (hide mcp tools unless project has MCP)
  *
- * User extensions load before packages, so PI_FFF_MODE is set before pi-fff reads it.
+ * User extensions load before packages, so env is set before FFF reads it.
+ * FFF itself defaults to override; this is belt-and-suspenders.
  */
 
-// Must run at module load — before package factories (incl. pi-fff).
+// Must run at module load — before package factories (incl. extensions/fff).
 if (!process.env.PI_FFF_MODE) {
 	process.env.PI_FFF_MODE = "override";
 }
@@ -18,11 +19,10 @@ import { registerMcpGate } from "./mcp-gate.ts";
 import { registerLeanPrompt } from "./lean-prompt.ts";
 
 export default function (pi: ExtensionAPI): void {
-	// Re-assert in case something cleared it between load and factory.
 	if (!process.env.PI_FFF_MODE) {
 		process.env.PI_FFF_MODE = "override";
 	}
 
-	registerMcpGate(pi);
 	registerLeanPrompt(pi);
+	registerMcpGate(pi);
 }

@@ -1,10 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
-import { BUNDLED_AGENTS_DIR, USER_AGENTS_DIR } from "./constants";
+import { BUNDLED_AGENTS_DIR, PROJECT_AGENTS_REL, USER_AGENTS_DIR } from "./constants";
 import type { AgentConfig, ResolvedModel } from "./types";
 
-export function loadAgentsFromDir(dir: string, source: "bundled" | "user"): AgentConfig[] {
+export type AgentSource = AgentConfig["source"];
+
+export function loadAgentsFromDir(dir: string, source: AgentSource): AgentConfig[] {
 	const agents: AgentConfig[] = [];
 	if (!fs.existsSync(dir)) return agents;
 
@@ -50,11 +52,19 @@ export function loadAgentsFromDir(dir: string, source: "bundled" | "user"): Agen
 	return agents;
 }
 
-/** Bundled defaults + ~/.pi/agent/agents/*.md (user overrides by name). */
-export function discoverAgents(): AgentConfig[] {
+/**
+ * Discover agents for a session.
+ * Precedence (later wins by name): bundled < user (~/.pi/agent/agents) < project (<cwd>/.pi/agents).
+ * Pass cwd so project-local factory agents load only in that repo.
+ */
+export function discoverAgents(cwd?: string): AgentConfig[] {
 	const map = new Map<string, AgentConfig>();
 	for (const a of loadAgentsFromDir(BUNDLED_AGENTS_DIR, "bundled")) map.set(a.name, a);
 	for (const a of loadAgentsFromDir(USER_AGENTS_DIR, "user")) map.set(a.name, a);
+	if (cwd) {
+		const projectDir = path.resolve(cwd, PROJECT_AGENTS_REL);
+		for (const a of loadAgentsFromDir(projectDir, "project")) map.set(a.name, a);
+	}
 	return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -69,31 +79,58 @@ export function formatModelLabel(resolved: ResolvedModel): string {
 	return bits.join(" ");
 }
 
+/** Tools field for catalog lines — Claude Code AgentTool style. */
+export function getToolsDescription(agent: AgentConfig): string {
+	if (!agent.tools || agent.tools.length === 0) return "all";
+	return agent.tools.join(", ");
+}
+
+/**
+ * One catalog line (CC formatAgentLine):
+ * `- name: whenToUse (Tools: …)`
+ */
+export function formatAgentLine(agent: AgentConfig): string {
+	const when = agent.description.replace(/\s+/g, " ").trim();
+	const tools = getToolsDescription(agent);
+	const tag =
+		agent.source === "user" ? " [user]" : agent.source === "project" ? " [project]" : "";
+	return `- ${agent.name}${tag}: ${when} (Tools: ${tools})`;
+}
+
 export function formatAgentCatalog(
 	agents: AgentConfig[],
-	resolveModel?: (agent: AgentConfig) => ResolvedModel,
-	opts?: { compact?: boolean },
+	_resolveModel?: (agent: AgentConfig) => ResolvedModel,
+	_opts?: { compact?: boolean },
 ): string {
 	if (agents.length === 0) {
-		return `No subagents found. Add markdown agents to ${USER_AGENTS_DIR}`;
+		return `No subagents found. Add markdown agents to ${USER_AGENTS_DIR} or .pi/agents/ in the project.`;
 	}
-	const compact = opts?.compact !== false;
-	return agents
-		.map((a) => {
-			const modelBit = resolveModel
-				? formatModelLabel(resolveModel(a))
-				: a.model
-					? `${a.model}${a.thinking ? ` thinking:${a.thinking}` : ""}`
-					: "inherit";
-			if (compact) {
-				const d = a.description.replace(/\s+/g, " ").trim();
-				const short = d.length <= 60 ? d : `${d.slice(0, 57).replace(/\s+\S*$/, "")}…`;
-				const src = a.source === "user" ? " · user" : "";
-				return `- ${a.name}${src}: ${short} · ${modelBit}`;
-			}
-			return `- ${a.name} (${a.source}): ${a.description} · model: ${modelBit}`;
-		})
-		.join("\n");
+	// Always CC-style lines (compact flag kept for call-site compatibility).
+	return agents.map(formatAgentLine).join("\n");
+}
+
+/** Tool description body: static policy + live agent registry (CC Agent tool). */
+export function buildSubagentsToolDescription(agents: AgentConfig[]): string {
+	const catalog =
+		agents.length > 0
+			? agents.map(formatAgentLine).join("\n")
+			: `(none — add agents under ${USER_AGENTS_DIR} or <project>/.pi/agents/)`;
+
+	return [
+		"Delegate a task to a specialized subagent with an isolated context window.",
+		"Use when parent context is heavy, work is independent/parallel, or you need a read-only specialist.",
+		"Prefer parent tools for small single-file work (one path, one symbol, 2–3 known files).",
+		"",
+		"Available agent types and the tools they have access to:",
+		catalog,
+		"",
+		"Prefer one tasks[] call for independent work (max 4); do not parallelize dependent steps.",
+		"Single: { agent, task }. Parallel: { tasks: [{ agent, task }, ...] }.",
+		"Optional model/thinking per call or task. Model inherits parent chat unless overridden.",
+		"Only the final text returns — not tool calls or intermediate steps. Parent waits until done.",
+		"Tasks: goal, constraints, paths, expected output.",
+		`Custom agents: ${USER_AGENTS_DIR} (global) or .pi/agents/ (project-local, preferred for factory).`,
+	].join("\n");
 }
 
 /**

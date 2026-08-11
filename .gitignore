@@ -11,9 +11,14 @@ trust.json
 
 # local machine config (pi creates/updates this)
 settings.json
+settings.json.bak*
+*.bak
 
 # private / machine-local providers (not shared in this repo)
+extensions/agy-proxy/
+extensions/cursor-proxy/
 extensions/grok-proxy/
+cursor-proxy-models-cache.json
 
 # local runtime state
 sessions/

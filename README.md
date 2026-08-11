@@ -12,7 +12,7 @@ cp /tmp/pi-agent-setup/.env.example ~/.pi/agent/.env  # fill keys
 
 | Extension | Role |
 |-----------|------|
-| `defaults` | FFF override, MCP gate, lean prompt |
+| `defaults` | FFF override, MCP gate (tools + conditional skill), lean prompt |
 | `search-web` | Exa + Firecrawl |
-| `subagents` | scout / planner / worker / reviewer / oracle (model inherits chat; thinking per agent) |
+| `subagents` | scout / planner / worker / reviewer / oracle + project `.pi/agents/*.md` (cwd; highest precedence) |
 | `ui` | footer + titlebar |

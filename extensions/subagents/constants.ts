@@ -11,3 +11,5 @@ export const QUIET_HINT_MS = 15_000;
 export const EXTENSION_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const BUNDLED_AGENTS_DIR = path.join(EXTENSION_DIR, "agents");
 export const USER_AGENTS_DIR = path.join(getAgentDir(), "agents");
+/** Project-local agents (not global). Relative to task cwd. */
+export const PROJECT_AGENTS_REL = path.join(".pi", "agents");

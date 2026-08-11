@@ -3,6 +3,15 @@ import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
+import { clampPercent, formatDurationLeft } from "./format";
+import {
+	cursorUsage,
+	cursorUsageFresh,
+	ensureCursorUsage,
+	formatCursorUsage,
+	isCursorModel,
+	markCursorUsageStale,
+} from "./cursor-usage";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,28 +43,6 @@ function isXaiGrokModel(model: { provider?: string; id?: string } | undefined | 
 	const id = model.id.toLowerCase();
 	// Weekly subscription meter applies to Grok models (4.5, 4.3, build, aliases)
 	return id === "grok-4.5" || id.startsWith("grok-4.5") || id.startsWith("grok-");
-}
-
-function clampPercent(n: number): number {
-	if (!Number.isFinite(n)) return 0;
-	return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-function formatDurationLeft(iso: string, now = new Date()): string {
-	const ms = new Date(iso).getTime() - now.getTime();
-	if (!Number.isFinite(ms)) return "?";
-	if (ms <= 0) return "now";
-
-	const totalMin = Math.floor(ms / 60_000);
-	const days = Math.floor(totalMin / (60 * 24));
-	const hours = Math.floor((totalMin % (60 * 24)) / 60);
-	const mins = totalMin % 60;
-
-	const parts: string[] = [];
-	if (days > 0) parts.push(`${days}d`);
-	if (hours > 0) parts.push(`${hours}h`);
-	if (days === 0 && (mins > 0 || parts.length === 0)) parts.push(`${mins}m`);
-	return parts.join(" ");
 }
 
 // ── Grok weekly usage (subscription OAuth) ───────────────────────────────────
@@ -602,8 +589,9 @@ export default function (pi: ExtensionAPI) {
 	const bump = () => tuiRef?.requestRender();
 
 	const maybeRefreshUsage = (ctx: ExtensionContext) => {
-		if (!isXaiGrokModel(ctx.model as { provider?: string; id?: string } | undefined)) return;
-		ensureGrokUsage(bump, abort?.signal);
+		const model = ctx.model as { provider?: string; id?: string } | undefined;
+		if (isXaiGrokModel(model)) ensureGrokUsage(bump, abort?.signal);
+		if (isCursorModel(model)) ensureCursorUsage(bump, abort?.signal);
 	};
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -673,10 +661,22 @@ export default function (pi: ExtensionAPI) {
 						grokPart = theme.fg(color, `󰓅 ${grokStr}`);
 					}
 
+					// Cursor plan meters — two buckets with separate limits, so both
+					// are shown and the one the active model bills to is highlighted.
+					let cursorPart: string | null = null;
+					if (isCursorModel(model)) {
+						if (!cursorUsageFresh()) ensureCursorUsage(bump, abort?.signal);
+						const segments = formatCursorUsage(cursorUsage(), modelId);
+						cursorPart = segments
+							.map((s, i) => theme.fg(s.color, i === 0 ? `󰓅 ${s.text}` : s.text))
+							.join(theme.fg("dim", " · "));
+					}
+
 					const parts = [
 						theme.fg("success", "π"),
 						theme.fg("accent", `󰚩 ${modelName}`),
 						...(grokPart ? [grokPart] : []),
+						...(cursorPart ? [cursorPart] : []),
 						theme.fg(thinkingToken, `󱜙 ${thinkingLevel}`),
 						theme.fg("muted", `󰉋 ${displayCwd}`),
 						theme.fg("dim", `󰍛 ${contextStr}`),
@@ -701,21 +701,25 @@ export default function (pi: ExtensionAPI) {
 		bump();
 	});
 	pi.on("turn_end", (_e, ctx) => {
-		// Force a fresh pull after each turn while on Grok (usage moves)
-		if (isXaiGrokModel(ctx.model as { provider?: string; id?: string } | undefined)) {
+		// Force a fresh pull after each turn while on a metered provider (usage moves)
+		const model = ctx.model as { provider?: string; id?: string } | undefined;
+		if (isXaiGrokModel(model)) {
 			cachedUsage = cachedUsage
 				? { ...cachedUsage, fetchedAt: 0 }
 				: null;
-			maybeRefreshUsage(ctx);
 		}
+		if (isCursorModel(model)) markCursorUsageStale();
+		maybeRefreshUsage(ctx);
 		bump();
 	});
 	pi.on("model_select", (_e, ctx) => {
-		if (isXaiGrokModel(ctx.model as { provider?: string; id?: string } | undefined)) {
-			// Invalidate so switching onto Grok always refreshes
-			if (cachedUsage) cachedUsage = { ...cachedUsage, fetchedAt: 0 };
-			maybeRefreshUsage(ctx);
+		// Invalidate so switching onto a metered provider always refreshes
+		const model = ctx.model as { provider?: string; id?: string } | undefined;
+		if (isXaiGrokModel(model) && cachedUsage) {
+			cachedUsage = { ...cachedUsage, fetchedAt: 0 };
 		}
+		if (isCursorModel(model)) markCursorUsageStale();
+		maybeRefreshUsage(ctx);
 		bump();
 	});
 	pi.on("thinking_level_select", () => bump());

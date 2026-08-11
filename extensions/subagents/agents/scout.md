@@ -1,6 +1,6 @@
 ---
 name: scout
-description: Fast read-only codebase recon. Returns compressed findings for handoff.
+description: Multi-file read-only recon/handoff — not one-file greps.
 tools: read, grep, find, ls, bash
 thinking: low
 ---

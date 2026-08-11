@@ -1,6 +1,6 @@
 ---
 name: oracle
-description: High-reasoning advisor for architecture, tradeoffs, and hard bugs. Call sparingly when the path is unclear or prior attempts failed. Read-only.
+description: Architecture/tradeoffs/hard bugs only — sparingly. Read-only.
 tools: read, grep, find, ls, bash
 thinking: max
 ---

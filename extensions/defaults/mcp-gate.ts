@@ -1,24 +1,34 @@
 /**
- * Only expose the `mcp` proxy tool when the project has an enabled MCP server.
+ * Only expose MCP surfaces when the project has an enabled MCP server.
  *
- * Project-scoped:
+ * Hides:
+ *   - `mcp` / `mcpScript` tools (setActiveTools)
+ *   - `mcp-scripting` skill (package skills disabled in settings; re-added via
+ *     resources_discover only when the project has MCP)
+ *
+ * Project-scoped detection:
  *   - <cwd>/.mcp.json
  *   - <cwd>/.pi/mcp.json
  *
- * Global MCP alone does not keep the tool visible.
+ * Global MCP alone does not keep them visible.
+ *
+ * Docs:
+ *   - packages.md / settings.md: package filter `"skills": []`
+ *   - extensions.md: resources_discover can contribute skillPaths
+ *   - pi-mcp-adapter README: hide skill with object package entry
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-const MCP_TOOL = "mcp";
+const MCP_TOOLS = ["mcp", "mcpScript"] as const;
 
 type ToolHost = {
 	getActiveTools?: () => string[];
 	setActiveTools?: (tools: string[]) => void;
 	getAllTools?: () => Array<{ name: string }>;
-	unregisterTool?: (name: string) => boolean;
 };
 
 function readJson(filePath: string): unknown | null {
@@ -57,6 +67,46 @@ export function projectHasActiveMcp(cwd: string): boolean {
 	return false;
 }
 
+/** Resolve pi-mcp-adapter's mcp-scripting skill dir (package install under agent npm). */
+export function resolveMcpScriptingSkillPath(): string | null {
+	const candidates = [
+		// Usual pi package install location
+		path.join(
+			process.env.PI_CODING_AGENT_DIR ?? path.join(process.env.HOME ?? "", ".pi", "agent"),
+			"npm",
+			"node_modules",
+			"pi-mcp-adapter",
+			"skills",
+			"mcp-scripting",
+		),
+		// Fallback: resolve from a known package file if present in module graph
+	];
+
+	for (const dir of candidates) {
+		if (fs.existsSync(path.join(dir, "SKILL.md"))) return dir;
+	}
+
+	// Last resort: walk from this extension file toward agent npm
+	try {
+		const here = path.dirname(fileURLToPath(import.meta.url));
+		const guess = path.resolve(
+			here,
+			"..",
+			"..",
+			"npm",
+			"node_modules",
+			"pi-mcp-adapter",
+			"skills",
+			"mcp-scripting",
+		);
+		if (fs.existsSync(path.join(guess, "SKILL.md"))) return guess;
+	} catch {
+		/* ignore */
+	}
+
+	return null;
+}
+
 function hostFrom(pi: ExtensionAPI, ctx?: ExtensionContext): ToolHost {
 	const c = (ctx ?? {}) as ToolHost;
 	const p = pi as unknown as ToolHost;
@@ -64,55 +114,71 @@ function hostFrom(pi: ExtensionAPI, ctx?: ExtensionContext): ToolHost {
 		getActiveTools: c.getActiveTools?.bind(c) ?? p.getActiveTools?.bind(p),
 		setActiveTools: c.setActiveTools?.bind(c) ?? p.setActiveTools?.bind(p),
 		getAllTools: p.getAllTools?.bind(p),
-		unregisterTool: p.unregisterTool?.bind(p),
 	};
 }
 
-function syncMcpVisibility(pi: ExtensionAPI, ctx?: ExtensionContext): void {
+/** Deactivate/reactivate MCP tools via setActiveTools (rebuilds base prompt). */
+function syncMcpToolVisibility(pi: ExtensionAPI, ctx?: ExtensionContext): void {
 	const cwd = ctx?.cwd ?? process.cwd();
 	const active = projectHasActiveMcp(cwd);
 	const host = hostFrom(pi, ctx);
 	const tools = host.getActiveTools?.();
 	if (!tools || !host.setActiveTools) return;
 
-	const hasMcp = tools.includes(MCP_TOOL);
-	const registered = host.getAllTools?.().some((t) => t.name === MCP_TOOL) ?? hasMcp;
+	const registered = new Set((host.getAllTools?.() ?? []).map((t) => t.name));
+	const activeSet = new Set(tools);
+	let next = tools.slice();
+	let changed = false;
 
-	if (!active && hasMcp) {
-		if (host.unregisterTool?.(MCP_TOOL)) return;
-		host.setActiveTools(tools.filter((name) => name !== MCP_TOOL));
-		return;
+	for (const name of MCP_TOOLS) {
+		const isActive = activeSet.has(name);
+		const isRegistered = registered.has(name);
+
+		if (!active && isActive) {
+			next = next.filter((n) => n !== name);
+			activeSet.delete(name);
+			changed = true;
+			continue;
+		}
+
+		if (active && !isActive && isRegistered) {
+			next = [...next, name];
+			activeSet.add(name);
+			changed = true;
+		}
 	}
 
-	if (active && !hasMcp && registered) {
-		host.setActiveTools([...tools, MCP_TOOL]);
-	}
+	if (changed) host.setActiveTools(next);
 }
 
 export function registerMcpGate(pi: ExtensionAPI): void {
-	setImmediate(() => {
+	const sync = (ctx?: ExtensionContext) => {
 		try {
-			syncMcpVisibility(pi);
+			syncMcpToolVisibility(pi, ctx);
 		} catch {
 			/* ignore */
 		}
-	});
+	};
 
+	// Packages register tools after user extensions; re-sync after load + session.
+	setImmediate(() => sync());
 	pi.on("session_start", async (_event, ctx) => {
-		setTimeout(() => {
-			try {
-				syncMcpVisibility(pi, ctx);
-			} catch {
-				/* ignore */
-			}
-		}, 0);
+		setTimeout(() => sync(ctx), 0);
+		setTimeout(() => sync(ctx), 50);
 	});
 
+	// Skill is NOT loaded from the package (settings skills: []).
+	// Re-introduce only when the project has an enabled MCP server.
+	// Fired after session_start; Pi rebuilds the system prompt if paths are returned.
+	pi.on("resources_discover", async (event) => {
+		if (!projectHasActiveMcp(event.cwd)) return;
+		const skillPath = resolveMcpScriptingSkillPath();
+		if (!skillPath) return;
+		return { skillPaths: [skillPath] };
+	});
+
+	// Tools again at turn start (cwd may change; adapter may re-activate tools).
 	pi.on("before_agent_start", async (_event, ctx) => {
-		try {
-			syncMcpVisibility(pi, ctx);
-		} catch {
-			/* ignore */
-		}
+		sync(ctx);
 	});
 }

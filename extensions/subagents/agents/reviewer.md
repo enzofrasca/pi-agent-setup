@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Read-only code review for bugs, security, and maintainability.
+description: Review finished diff/files — not open-ended recon.
 tools: read, grep, find, ls, bash
 thinking: high
 ---

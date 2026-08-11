@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Read-only implementation planner. Produces concrete, actionable plans.
+description: File-level plan a worker can execute; read-only.
 tools: read, grep, find, ls
 thinking: medium
 ---

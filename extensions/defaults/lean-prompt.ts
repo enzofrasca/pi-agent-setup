@@ -31,6 +31,8 @@ function dropFiller(prompt: string): string {
 }
 
 function slimGuidelines(prompt: string): string {
+	// Defense only: search/scrape/subagents policy lives on tool descriptions,
+	// not always-on Guidelines. Keep stripping if something re-injects them.
 	const dropPrefixes = [
 		"Use search ",
 		"Use scrape",

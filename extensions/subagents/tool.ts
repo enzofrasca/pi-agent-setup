@@ -1,8 +1,13 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { MAX_PARALLEL, USER_AGENTS_DIR } from "./constants";
-import { discoverAgents, formatAgentCatalog, resolveAgentModel } from "./discovery";
+import { MAX_PARALLEL } from "./constants";
+import {
+	buildSubagentsToolDescription,
+	discoverAgents,
+	formatAgentCatalog,
+	resolveAgentModel,
+} from "./discovery";
 import {
 	formatElapsed,
 	formatParallelProgress,
@@ -64,20 +69,18 @@ function emptyRun(agent: string, source: RunResult["source"], task: string, star
 }
 
 export function createSubagentsTool() {
+	// Registration-time catalog is bundled+user only (no project cwd yet).
+	// execute() rediscovers with ctx.cwd so project .pi/agents load per-repo.
+	// Not injected into the system prompt — keeps parent always-on lean.
+	const bootAgents = discoverAgents();
+	const names =
+		bootAgents.map((a) => a.name).join(", ") || "scout, planner, worker, reviewer, oracle";
+
 	return {
 		name: "subagents",
 		label: "Subagents",
-		description: [
-			"Delegate a task to a specialized subagent with an isolated context window.",
-			"Single: { agent, task }. Parallel: { tasks: [{ agent, task }, ...] } (max 4).",
-			"Optional model/thinking per call or task.",
-			"Only the final text returns — not tool calls or intermediate steps.",
-			"Parent turn waits until all subagents finish.",
-			"Agents: scout, planner, oracle, reviewer, worker.",
-			`Custom agents: ${USER_AGENTS_DIR}`,
-		].join(" "),
-		promptSnippet:
-			"Delegate focused work to isolated subagents (scout, planner, oracle, reviewer, worker).",
+		description: buildSubagentsToolDescription(bootAgents),
+		promptSnippet: `Delegate focused work to isolated subagents (${names}; project .pi/agents also load).`,
 		parameters: Params,
 
 		async execute(
@@ -100,7 +103,12 @@ export function createSubagentsTool() {
 			onUpdate: ((partial: any) => void) | undefined,
 			ctx: ExtensionContext,
 		) {
-			const agents = discoverAgents();
+			// Prefer explicit task cwd, else session cwd — project agents live under that tree.
+			const discoveryCwd =
+				params.cwd ||
+				params.tasks?.find((t) => t.cwd)?.cwd ||
+				ctx.cwd;
+			const agents = discoverAgents(discoveryCwd);
 			const byName = new Map(agents.map((a) => [a.name, a]));
 			const batchStartedAt = nowMs();
 			const catalog = () =>

@@ -137,9 +137,8 @@ function formatHits(query: string, hits: Hit[]): string {
     `Search: ${query}`,
     `Results: ${hits.length}`,
     "",
-    "Each result includes query-relevant excerpts. Prefer answering from them.",
-    "Call scrape only if a specific URL needs a full-page read.",
-    "If a result has a .md or llms.txt twin for the same page, prefer that URL when scraping.",
+    "Excerpts below. Answer from them when sufficient.",
+    "Scrape only when a concrete detail is missing — prefer official docs, .md, or llms.txt when available.",
     "",
   ];
 
@@ -217,9 +216,9 @@ export default function (pi: ExtensionAPI): void {
     name: "search",
     label: "Search Web",
     description:
-      "Search the web (Exa). Returns ranked results with query-relevant excerpts. Answer from excerpts when enough; scrape only when a full page is needed.",
+      "Search the web (Exa) for external docs, APIs, changelogs, and product behavior not in the repo. Do not search for repo-local symbols or files. Returns ranked hits with excerpts. Answer from excerpts when they fully answer; scrape only when a concrete detail is missing or excerpts conflict (prefer official docs/.md/llms.txt).",
     promptSnippet: "Search the web; results include relevant excerpts.",
-    // No promptGuidelines: description + result format are enough (lean parent).
+    // Policy lives in description + result footer (lean parent keeps system prompt clean).
     parameters: Type.Object({
       query: Type.String({
         description: "Natural-language search query. Be specific about the fact you need.",
@@ -314,9 +313,9 @@ export default function (pi: ExtensionAPI): void {
     name: "scrape",
     label: "Scrape Page",
     description:
-      "Open one URL and return cleaned main-content markdown (Firecrawl). Use after search when excerpts are not enough.",
+      "Fetch one URL as cleaned markdown (Firecrawl). Prefer after search when a concrete detail is missing from excerpts; if the user already gave a URL, scrape directly. Prefer official docs, .md, or llms.txt twins.",
     promptSnippet: "Open one URL as cleaned markdown.",
-    // No promptGuidelines: description covers search-first / markdown URL preference.
+    // Policy lives in description (lean parent keeps system prompt clean).
     parameters: Type.Object({
       url: Type.String({ description: "URL to open." }),
       fresh: Type.Optional(

@@ -1,6 +1,6 @@
 ---
 name: worker
-description: General-purpose implementer with full tools in an isolated context.
+description: Scoped implementer; scout/plan optional if paths known.
 thinking: medium
 ---
 

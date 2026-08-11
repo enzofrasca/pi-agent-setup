@@ -8,7 +8,7 @@ export interface AgentConfig {
 	model?: string;
 	thinking?: string;
 	systemPrompt: string;
-	source: "bundled" | "user";
+	source: "bundled" | "user" | "project";
 	filePath: string;
 }
 
