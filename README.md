@@ -17,5 +17,3 @@ cp /tmp/pi-agent-setup/.env.example ~/.pi/agent/.env  # fill keys
 | `fff` | Lean FFF `find`/`grep` (override mode, no guidelines; package via `settings.packages`) |
 | `search-web` | Exa + Firecrawl |
 | `ui` | footer + titlebar |
-
-Private / machine-local (not in this repo): `agy-proxy`, `cursor-proxy`, `grok-proxy`.
